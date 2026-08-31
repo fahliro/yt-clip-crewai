@@ -10,12 +10,16 @@ from .settings import get_access_token  # relative import works when run as modu
 
 
 def main() -> int:
+    print("[preflight] mencoba OAuth Bearer (YT_UPLOAD_TOKEN) ...")
     bearer = get_access_token()
     if bearer:
         print("[preflight] OAuth access token OK (Bearer siap dipakai download+upload)")
         return 0
 
-    # Bearer gagal -> coba cookies (fragile) sebagai fallback
+    # Bearer gagal -> cetak penyebab (sudah di-print oleh get_access_token)
+    print("[preflight] Bearer GAGAL — lihat baris [auth] di atas untuk detail "
+          "(invalid_grant / 403 scope / client mismatch).")
+
     cookies_b64 = (os.environ.get("YT_COOKIES_TXT") or "").strip()
     if not cookies_b64:
         print("\n" + "=" * 70)

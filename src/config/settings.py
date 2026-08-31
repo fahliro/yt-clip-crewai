@@ -60,7 +60,10 @@ def get_access_token() -> str | None:
         r.raise_for_status()
         return r.json().get("access_token")
     except Exception as e:  # noqa: BLE001
-        print(f"[auth] gagal refresh access token: {e}")
+        detail = ""
+        if isinstance(e, requests.HTTPError) and e.response is not None:
+            detail = f" HTTP {e.response.status_code}: {e.response.text[:400]}"
+        print(f"[auth] gagal refresh access token:{detail} ({e})")
         return None
 
 
