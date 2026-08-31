@@ -7,7 +7,7 @@ import json
 import os
 import re
 import time
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import requests
 from crewai.tools import BaseTool
@@ -64,7 +64,7 @@ class TranscribeTool(BaseTool):
         "with 'duration' and 'words' (list of {word,start,end})."
     )
 
-    def _run(self, video_path: str) -> Dict:
+    def _run(self, video_path: str) -> Dict[str, Any]:
         url = "https://api.groq.com/openai/v1/audio/transcriptions"
         with open(video_path, "rb") as f:
             r = requests.post(url,
@@ -90,7 +90,7 @@ class PickSegmentsTool(BaseTool):
         "{start,end,score,reason,fillers}."
     )
 
-    def _run(self, transcript: Dict) -> List[Dict]:
+    def _run(self, transcript: Dict[str, Any]) -> List[Dict[str, Any]]:
         from ..config import build_llm
         words = transcript.get("words", [])
         if not words:
@@ -146,7 +146,7 @@ class BuildCaptionTool(BaseTool):
         "Returns the .ass path."
     )
 
-    def _run(self, words: List[Dict], out_path: str) -> str:
+    def _run(self, words: List[Dict[str, Any]], out_path: str) -> str:
         style = ("Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,1,0,0,0,100,100,0,0,2,20,20,20,1")
         lines = [
             "[Script Info]", "ScriptType: v4.00+", "PlayResX: 1080", "PlayResY: 1920", "",
@@ -201,7 +201,7 @@ class CutClipTool(BaseTool):
         "Returns the final clip .mp4 path."
     )
 
-    def _run(self, raw_path: str, seg: Dict, words: List[Dict], idx: int) -> str:
+    def _run(self, raw_path: str, seg: Dict[str, Any], words: List[Dict[str, Any]], idx: int) -> str:
         from ..config import WORKDIR
         start, end = float(seg["start"]), float(seg["end"])
         fillers = set(w.lower() for w in seg.get("fillers", DEFAULT_FILLERS))
