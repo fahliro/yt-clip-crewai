@@ -1,7 +1,7 @@
-"""Preflight: validate that the YouTube OAuth credentials can actually produce
-a valid access token (STABLE path) AND/OR that cookies are usable. If both fail,
-fail FAST with an explicit ACTION REQUIRED message instead of letting yt-dlp
-silently report 'Private video' deep inside the pipeline."""
+"""Preflight: validate that the YouTube cookies can actually download the owner's
+PRIVATE video (yt-dlp download REQUIRES cookies; OAuth Bearer only works for the
+upload API). Fail FAST with an explicit ACTION REQUIRED message instead of letting
+yt-dlp silently report 'Private video' deep inside the pipeline."""
 
 import os
 import sys
@@ -10,23 +10,19 @@ from .settings import get_access_token  # relative import works when run as modu
 
 
 def main() -> int:
-    print("[preflight] mencoba OAuth Bearer (YT_UPLOAD_TOKEN) ...")
+    # Bearer is needed for the UPLOAD step (YouTube Data API), not download.
     bearer = get_access_token()
     if bearer:
-        print("[preflight] OAuth access token OK (Bearer siap dipakai download+upload)")
-        return 0
-
-    # Bearer gagal -> cetak penyebab (sudah di-print oleh get_access_token)
-    print("[preflight] Bearer GAGAL — lihat baris [auth] di atas untuk detail "
-          "(invalid_grant / 403 scope / client mismatch).")
+        print("[preflight] OAuth Bearer OK (untuk upload API)")
+    else:
+        print("[preflight] Bearer KOSONG — upload bakal gagal. Re-consent via get_auth_token.py")
 
     cookies_b64 = (os.environ.get("YT_COOKIES_TXT") or "").strip()
     if not cookies_b64:
         print("\n" + "=" * 70)
-        print("ACTION REQUIRED: YT_UPLOAD_TOKEN (OAuth refresh token) GAGAL refresh,")
-        print("dan YT_COOKIES_TXT kosong. Jalankan get_auth_token.py untuk re-consent")
-        print("OAuth scope 'youtube' (download private + upload), lalu update secret")
-        print("YT_UPLOAD_TOKEN di Environment YT_CHANNEL_ID. Atau isi YT_COOKIES_TXT.")
+        print("ACTION REQUIRED: YT_COOKIES_TXT kosong. Download video PRIVATE butuh")
+        print("cookies yt-dlp. Export Netscape .txt dari youtube.com -> base64 ->")
+        print("update secret YT_COOKIES_TXT di Environment YT_CHANNEL_ID.")
         print("=" * 70)
         return 1
 
@@ -45,17 +41,16 @@ def main() -> int:
              "--extractor-args", "youtube:player_client=web",
              "--cookies", cf.name, "--no-playlist", "-F",
              f"https://www.youtube.com/watch?v={test_id}"]
-    print(f"[preflight] Bearer kosong; probing cookies fallback vs {test_id} ...")
+    print(f"[preflight] probing cookies vs {test_id} ...")
     r = subprocess.run(probe, capture_output=True, text=True, timeout=120)
     out = r.stdout + "\n" + r.stderr
     if r.returncode != 0 and ("no longer valid" in out or "Private video" in out or "Sign in" in out):
         print("\n" + "=" * 70)
-        print("ACTION REQUIRED: cookies EXPIRED/ROTATED. Re-consent OAuth via")
-        print("get_auth_token.py (scope 'youtube') untuk jalur stabil, atau re-export")
-        print("cookies Netscape .txt -> base64 -> update YT_COOKIES_TXT.")
+        print("ACTION REQUIRED: cookies EXPIRED/ROTATED. Re-export cookies Netscape")
+        print(".txt dari youtube.com -> base64 -> update YT_COOKIES_TXT.")
         print("=" * 70)
         return 1
-    print("[preflight] cookies fallback OK")
+    print("[preflight] cookies OK (download private video siap)")
     return 0
 
 

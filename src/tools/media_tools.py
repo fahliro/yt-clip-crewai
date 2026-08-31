@@ -31,26 +31,17 @@ class DownloadRawTool(BaseTool):
     )
 
     def _run(self, video_id: str) -> str:
-        from ..config import YT_COOKIES_TXT, get_access_token
+        from ..config import YT_COOKIES_TXT
         out = WORKDIR / f"{video_id}.mp4"
         cmd = ["yt-dlp", "-f", "best[height<=1080]",
                "--js-runtimes", os.environ.get("YTDLP_JS_RUNTIME", "node"),
                "--remote-components", "ejs:github",
                "--extractor-args", "youtube:player_client=web",
                "-o", str(out), "--no-playlist"]
-        # Prefer STABLE OAuth Bearer token; fall back to (fragile) cookies.
-        bearer = get_access_token()
-        if not bearer:
-            # reuse token cached by the preflight step (separate process)
-            try:
-                bearer = (WORKDIR / ".yt_bearer").read_text(encoding="utf-8").strip()
-            except Exception:
-                bearer = ""
-        log(f"[download] bearer status: {'OK' if bearer else 'NONE'}")
-        if bearer:
-            cmd += ["--add-header", f"Authorization: Bearer ***"]
-            log("[download] pakai OAuth Bearer (cookies dibuang)")
-        elif YT_COOKIES_TXT:
+        # yt-dlp download of PRIVATE videos REQUIRES cookies (Bearer OAuth only
+        # works for the YouTube Data API upload call, not for media download).
+        # Prefer cookies; if missing, fail fast with a clear ACTION REQUIRED.
+        if YT_COOKIES_TXT:
             import base64
             b64 = YT_COOKIES_TXT.strip()
             try:
@@ -61,7 +52,14 @@ class DownloadRawTool(BaseTool):
             cookies = WORKDIR / "cookies.txt"
             cookies.write_text(raw, newline="\n", encoding="utf-8")
             cmd += ["--cookies", str(cookies)]
-            log("[download] cookies fallback (Bearer kosong)")
+            log("[download] pakai cookies (Bearer hanya untuk upload API)")
+        else:
+            raise RuntimeError(
+                "DOWNLOAD GAGAL: YT_COOKIES_TXT kosong. Download video PRIVATE "
+                "butuh cookies yt-dlp (Bearer OAuth tidak didukung untuk download). "
+                "Export cookies Netscape .txt dari youtube.com -> base64 -> update "
+                "secret YT_COOKIES_TXT."
+            )
         cmd.append(f"https://www.youtube.com/watch?v={video_id}")
         try:
             run(cmd)
