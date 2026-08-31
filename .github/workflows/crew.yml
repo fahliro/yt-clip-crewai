@@ -52,6 +52,9 @@ jobs:
         run: python -c "from src.config import build_llm; build_llm(); print('LLM ok')"
       - name: Preflight - cek cookies YouTube masih valid
         env:
+          YT_UPLOAD_CLIENT: ${{ secrets.YT_UPLOAD_CLIENT }}
+          YT_UPLOAD_SECRET: ${{ secrets.YT_UPLOAD_SECRET }}
+          YT_UPLOAD_TOKEN: ${{ secrets.YT_UPLOAD_TOKEN }}
           YT_COOKIES_TXT: ${{ secrets.YT_COOKIES_TXT }}
           VIDEO_ID: ${{ github.event.client_payload.video_id || github.event.inputs.video_id }}
         run: python -m src.config.preflight
