@@ -143,7 +143,7 @@ def build_clipping_crew() -> Crew:
     )
 
     return Crew(
-        agents=[director, scout, transcriber, cutter, captioner, uploader, qa],
+        agents=[scout, transcriber, cutter, captioner, uploader, qa],
         tasks=[transcribe_task, analyze_task, cut_task, caption_task, review_task, upload_task],
         process=Process.hierarchical,
         manager_agent=director,
