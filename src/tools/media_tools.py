@@ -64,7 +64,7 @@ class TranscribeTool(BaseTool):
         "with 'duration' and 'words' (list of {word,start,end})."
     )
 
-    def _run(self, video_path: str) -> Dict[str, Any]:
+    def _run(self, video_path: str) -> str:
         url = "https://api.groq.com/openai/v1/audio/transcriptions"
         with open(video_path, "rb") as f:
             r = requests.post(url,
@@ -78,29 +78,34 @@ class TranscribeTool(BaseTool):
         data = r.json()
         flat = [w for seg in data.get("segments", []) for w in seg.get("words", [])]
         log(f"[groq] flatten words dari segments: {len(flat)} kata")
-        return {"duration": data.get("duration", 0), "words": flat}
+        return json.dumps({"duration": data.get("duration", 0), "words": flat})
 
 
 # ------------------------------------------------------------- pick segments
 class PickSegmentsTool(BaseTool):
     name: str = "pick_segments"
     description: str = (
-        "Given a transcript dict {duration,words}, ask the chat LLM to choose the "
-        "best 3-8 short-form segments. Returns a JSON list of "
-        "{start,end,score,reason,fillers}."
+        "Given a transcript as a JSON string {\"duration\":float,\"words\":[{\"word\",\"start\",\"end\"}]}, "
+        "ask the chat LLM to choose the best 3-8 short-form segments. Returns a JSON "
+        "string list of {\"start\",\"end\",\"score\",\"reason\",\"fillers\"}."
     )
 
-    def _run(self, transcript: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _run(self, transcript_json: str) -> str:
+        import json as _json
         from ..config import build_llm
+        try:
+            transcript = _json.loads(transcript_json)
+        except Exception:
+            transcript = {"duration": 0, "words": []}
         words = transcript.get("words", [])
         if not words:
             dur = float(transcript.get("duration") or 0)
             if dur <= 0:
-                return [{"start": 0, "end": 0, "score": 5,
-                         "reason": "fallback-no-words", "fillers": DEFAULT_FILLERS}]
-            return [{"start": i, "end": min(i + 45, dur), "score": 5,
+                return _json.dumps([{"start": 0, "end": 0, "score": 5,
+                         "reason": "fallback-no-words", "fillers": DEFAULT_FILLERS}])
+            return _json.dumps([{"start": i, "end": min(i + 45, dur), "score": 5,
                      "reason": "fallback", "fillers": DEFAULT_FILLERS}
-                    for i in range(0, int(dur), 45)]
+                    for i in range(0, int(dur), 45)])
 
         chunks, t, buf = [], 0.0, []
         for w in words:
@@ -134,7 +139,7 @@ class PickSegmentsTool(BaseTool):
             s.setdefault("fillers", DEFAULT_FILLERS)
         segs.sort(key=lambda s: s.get("score", 0), reverse=True)
         log(f"LLM pilih {len(segs)} segmen")
-        return segs
+        return json.dumps(segs)
 
 
 # ----------------------------------------------------------------- caption
@@ -146,7 +151,9 @@ class BuildCaptionTool(BaseTool):
         "Returns the .ass path."
     )
 
-    def _run(self, words: List[Dict[str, Any]], out_path: str) -> str:
+    def _run(self, words_json: str, out_path: str) -> str:
+        import json as _json
+        words = _json.loads(words_json)
         style = ("Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,1,0,0,0,100,100,0,0,2,20,20,20,1")
         lines = [
             "[Script Info]", "ScriptType: v4.00+", "PlayResX: 1080", "PlayResY: 1920", "",
@@ -201,8 +208,12 @@ class CutClipTool(BaseTool):
         "Returns the final clip .mp4 path."
     )
 
-    def _run(self, raw_path: str, seg: Dict[str, Any], words: List[Dict[str, Any]], idx: int) -> str:
+    def _run(self, raw_path: str, seg_json: str, words_json: str, idx: str) -> str:
+        import json as _json
         from ..config import WORKDIR
+        seg = _json.loads(seg_json)
+        words = _json.loads(words_json)
+        idx = int(idx)
         start, end = float(seg["start"]), float(seg["end"])
         fillers = set(w.lower() for w in seg.get("fillers", DEFAULT_FILLERS))
         seg_words = [w for w in words if start <= w["start"] < end]
