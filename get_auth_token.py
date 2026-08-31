@@ -13,8 +13,8 @@ Cara pakai (di mesin kamu, BUKAN CI):
        - OAuth consent screen -> publish (atau add test user = akun kamu)
        - Credentials -> Create OAuth Client ID -> type "Desktop app"
        - copy Client ID + Client Secret
-  2. Isi di bawah (atau arg 1 & 2), lalu:
-       python get_auth_token.py
+  2. Jalankan (params, gak perlu edit file):
+       python get_auth_token.py --client-id "....apps.googleusercontent.com" --client-secret "...."
   3. Browser buka URL, login akun PEMILIK channel, klik Izinkan.
   4. Paste "code" -> script print refresh_token.
   5. Masukkan 3 nilai ke GitHub Secrets (Environment YT_CHANNEL_ID):
@@ -24,19 +24,17 @@ Cara pakai (di mesin kamu, BUKAN CI):
 
 Setelah ini, YT_COOKIES_TXT jadi OPSIONAL (fallback saja).
 """
-import sys, json, urllib.parse, urllib.request, webbrowser
+import sys, json, argparse, urllib.parse, urllib.request, webbrowser
 
-CLIENT_ID = ""      # <- isi, atau pass arg 1
-CLIENT_SECRET = ""  # <- isi, atau pass arg 2
 REDIRECT = "urn:ietf:wg:oauth:2.0:oob"
 # PENUH: bisa read (download private) + upload
 SCOPE = ("https://www.googleapis.com/auth/youtube "
          "https://www.googleapis.com/auth/youtube.upload")
 
 
-def build_auth_url():
+def build_auth_url(client_id):
     p = {
-        "client_id": CLIENT_ID,
+        "client_id": client_id,
         "redirect_uri": REDIRECT,
         "response_type": "code",
         "scope": SCOPE,
@@ -46,10 +44,10 @@ def build_auth_url():
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(p)
 
 
-def exchange(code):
+def exchange(client_id, client_secret, code):
     data = urllib.parse.urlencode({
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
+        "client_id": client_id,
+        "client_secret": client_secret,
         "code": code,
         "grant_type": "authorization_code",
         "redirect_uri": REDIRECT,
@@ -60,13 +58,12 @@ def exchange(code):
 
 
 def main():
-    global CLIENT_ID, CLIENT_SECRET
-    if len(sys.argv) >= 3:
-        CLIENT_ID, CLIENT_SECRET = sys.argv[1], sys.argv[2]
-    if not CLIENT_ID or not CLIENT_SECRET:
-        print("ERROR: isi CLIENT_ID/CLIENT_SECRET di script atau pass arg.")
-        sys.exit(1)
-    url = build_auth_url()
+    ap = argparse.ArgumentParser(description="Generate YouTube OAuth refresh_token (scope youtube + youtube.upload)")
+    ap.add_argument("--client-id", required=True, help="OAuth Client ID (Desktop app)")
+    ap.add_argument("--client-secret", required=True, help="OAuth Client Secret")
+    args = ap.parse_args()
+    client_id, client_secret = args.client_id, args.client_secret
+    url = build_auth_url(client_id)
     print("\nBuka URL ini di browser (login akun PEMILIK channel), lalu copy 'code':\n")
     print(url, "\n")
     try:
@@ -74,10 +71,10 @@ def main():
     except Exception:
         pass
     code = input("Paste code di sini: ").strip()
-    tok = exchange(code)
+    tok = exchange(client_id, client_secret, code)
     print("\n=== HASIL (masukkan ke GitHub Secrets Environment YT_CHANNEL_ID) ===")
-    print("YT_UPLOAD_CLIENT  =", CLIENT_ID)
-    print("YT_UPLOAD_SECRET  =", CLIENT_SECRET)
+    print("YT_UPLOAD_CLIENT  =", client_id)
+    print("YT_UPLOAD_SECRET  =", client_secret)
     print("YT_UPLOAD_TOKEN   =", tok.get("refresh_token"))
 
 
