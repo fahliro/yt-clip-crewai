@@ -1,11 +1,15 @@
 __pycache__/
 *.pyc
 .env
-state.json
+.venv/
 workdir/
+state.json
 *.mp4
 *.ass
 *.txt.b64
 cookies/
 .hermes-tmp.*/
+check_*.py
+make_repo.py
+push_repo.py
 .DS_Store
