@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from crewai import Agent, Crew, Process
 
-from ..config import build_llm
-from ..tools import (
+from .config import build_llm
+from .tools import (
     DownloadRawTool, TranscribeTool, PickSegmentsTool, BuildCaptionTool,
     CutClipTool, UploadTool, PollLatestTool,
 )
