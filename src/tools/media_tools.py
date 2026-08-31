@@ -91,8 +91,7 @@ class PickSegmentsTool(BaseTool):
     )
 
     def _run(self, transcript: Dict) -> List[Dict]:
-        from crewai import LLM
-        from ..config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
+        from ..config import build_llm
         words = transcript.get("words", [])
         if not words:
             dur = float(transcript.get("duration") or 0)
@@ -118,7 +117,7 @@ class PickSegmentsTool(BaseTool):
             "[{\"start\":float,\"end\":float,\"score\":int,\"reason\":str,\"fillers\":[str]}].\n"
             + "\n".join(chunks)[:14000]
         )
-        llm = LLM(model=LLM_MODEL, base_url=LLM_BASE_URL, api_key=LLM_API_KEY, temperature=0.2)
+        llm = build_llm()
         content = llm.call(messages=[
             {"role": "system", "content": "Output JSON saja tanpa markdown."},
             {"role": "user", "content": prompt},
