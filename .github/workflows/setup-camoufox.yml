@@ -1,0 +1,21 @@
+name: Setup Camoufox
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # refresh cache tiap hari (binary camoufox ~200MB)
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install camoufox
+        run: |
+          python -m pip install -U pip
+          pip install camoufox>=0.5
+      - name: Fetch Camoufox browser binary (cached)
+        run: python -m camoufox fetch
