@@ -1,5 +1,6 @@
 crewai>=0.95
 crewai-tools>=0.32
+litellm>=1.40
 python-dotenv>=1.0
 requests>=2.31
 yt-dlp>=2024.1
