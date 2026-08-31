@@ -29,11 +29,11 @@ def main():
         sys.stderr.write("Secret YT_USERNAME / YT_APP_PASSWORD belum di-set.\n")
         sys.exit(1)
 
-    # Folder temporary untuk profile Camoufox (tiap run bersih)
-    user_data_dir = Path.home() / "camoufox_tmp_yt"
-    user_data_dir.mkdir(parents=True, exist_ok=True)
-
-    with Camoufox(headless=True, user_data_dir=str(user_data_dir)) as browser:
+    # Kamufox akan menggunakan profil default atau temporary internalnya
+    # Kita tidak mengatur user_data_dir langsung karena versi 0.5.x tidak mendukungnya
+    # sebagai argumen langsung ke Playwright launch.
+    with Camoufox(headless=True, ff_version=152, i_know_what_im_doing=True,
+                  os='windows', locale=['id-ID','id']) as browser:
         page = browser.new_page()
 
         # Buka halaman login YouTube
@@ -58,7 +58,7 @@ def main():
             # Cek apakah ada tantangan CAPTCHA
             if "challenge" in page.url or "suspicious" in page.url.lower():
                 sys.stderr.write(
-                    "Login terdeteksi CAPTCHA/tantangan keamanan. "
+                    "Login terdeteksi CAPHCTA/tantangan keamanan. "
                     "Selesaikan manual sekali, lalu coba lagi.\n"
                 )
                 sys.exit(1)
