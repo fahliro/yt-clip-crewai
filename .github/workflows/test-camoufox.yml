@@ -1,0 +1,49 @@
+name: Test Camoufox Only
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install camoufox + yt-dlp
+        run: |
+          python -m pip install -U pip
+          pip install camoufox>=0.5 yt-dlp>=2024.1
+          node --version
+      - name: Restore Camoufox cache
+        id: cache-camoufox
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/camoufox
+          key: camoufox-${{ runner.os }}-0.5
+      - name: Fetch Camoufox binary (cache miss only)
+        if: steps.cache-camoufox.outputs.cache-hit != 'true'
+        run: python -m camoufox fetch
+      - name: Check camoufox version
+        run: python -c "import camoufox; print('camoufox', camoufox.__version__)"
+      - name: Refresh YouTube cookies
+        id: refresh_cookies
+        env:
+          YT_USERNAME: ${{ secrets.YT_USERNAME }}
+          YT_APP_PASSWORD: ${{ secrets.YT_APP_PASSWORD }}
+        run: |
+          echo "YT_COOKIES_TXT=$(python .github/scripts/refresh_yt_cookies.py)" >> $GITHUB_ENV
+      - name: Verify cookie length
+        run: |
+          echo "Cookie base64 length: ${#YT_COOKIES_TXT}"
+          echo "First 100 chars: ${YT_COOKIES_TXT:0:100}"
+      - name: Download test (verify cookies work)
+        run: |
+          echo "$YT_COOKIES_TXT" | base64 -d > /tmp/yt_cookies.txt
+          echo "--- cookie file head ---"
+          head -5 /tmp/yt_cookies.txt
+          echo "--- cookie file lines ---"
+          wc -l /tmp/yt_cookies.txt
+          echo "--- yt-dlp probe ---"
+          yt-dlp --cookies /tmp/yt_cookies.txt --no-playlist -F "https://www.youtube.com/watch?v=YVLYNuhKZpc" 2>&1 | tail -20 || true
