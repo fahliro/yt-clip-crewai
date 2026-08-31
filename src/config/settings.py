@@ -5,6 +5,7 @@ CrewAI LLM from the SAME OpenAI-compatible endpoint used by yt-clip-automation
 from __future__ import annotations
 
 import os
+import requests
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -34,6 +35,33 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "").rstrip("/")
 LLM_MODEL = os.environ.get("LLM_MODEL", "")
+
+
+def get_access_token() -> str | None:
+    """Refresh the YouTube OAuth refresh token into a short-lived access token.
+
+    Returns the access token string, or None if credentials are missing / the
+    refresh fails. Used as a STABLE alternative to fragile browser cookies for
+    downloading the owner's own private videos and for uploading.
+    """
+    if not (YT_UPLOAD_CLIENT and YT_UPLOAD_SECRET and YT_UPLOAD_TOKEN):
+        return None
+    try:
+        r = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": YT_UPLOAD_CLIENT,
+                "client_secret": YT_UPLOAD_SECRET,
+                "refresh_token": YT_UPLOAD_TOKEN,
+                "grant_type": "refresh_token",
+            },
+            timeout=30,
+        )
+        r.raise_for_status()
+        return r.json().get("access_token")
+    except Exception as e:  # noqa: BLE001
+        print(f"[auth] gagal refresh access token: {e}")
+        return None
 
 
 def build_llm(temperature: float = 0.2) -> LLM:

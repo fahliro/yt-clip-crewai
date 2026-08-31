@@ -50,6 +50,11 @@ jobs:
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
         run: python -c "from src.config import build_llm; build_llm(); print('LLM ok')"
+      - name: Preflight - cek cookies YouTube masih valid
+        env:
+          YT_COOKIES_TXT: ${{ secrets.YT_COOKIES_TXT }}
+          VIDEO_ID: ${{ github.event.client_payload.video_id || github.event.inputs.video_id }}
+        run: python -m src.config.preflight
       - name: Run CrewAI pipeline
         env:
           VIDEO_ID: ${{ github.event.client_payload.video_id || github.event.inputs.video_id }}

@@ -31,13 +31,19 @@ class DownloadRawTool(BaseTool):
     )
 
     def _run(self, video_id: str) -> str:
-        from ..config import YT_COOKIES_TXT
+        from ..config import YT_COOKIES_TXT, get_access_token
         out = WORKDIR / f"{video_id}.mp4"
         cmd = ["yt-dlp", "-f", "best[height<=1080]",
                "--js-runtimes", os.environ.get("YTDLP_JS_RUNTIME", "node"),
                "--remote-components", "ejs:github",
+               "--extractor-args", "youtube:player_client=web",
                "-o", str(out), "--no-playlist"]
-        if YT_COOKIES_TXT:
+        # Prefer STABLE OAuth Bearer token; fall back to (fragile) cookies.
+        bearer = get_access_token()
+        if bearer:
+            cmd += ["--add-header", f"Authorization: Bearer {bearer}"]
+            log("[download] pakai OAuth Bearer (cookies dibuang)")
+        elif YT_COOKIES_TXT:
             import base64
             b64 = YT_COOKIES_TXT.strip()
             try:
@@ -48,8 +54,20 @@ class DownloadRawTool(BaseTool):
             cookies = WORKDIR / "cookies.txt"
             cookies.write_text(raw, newline="\n", encoding="utf-8")
             cmd += ["--cookies", str(cookies)]
+            log("[download] cookies fallback (Bearer kosong)")
         cmd.append(f"https://www.youtube.com/watch?v={video_id}")
-        run(cmd)
+        try:
+            run(cmd)
+        except Exception as e:
+            msg = str(e)
+            if "no longer valid" in msg or "Private video" in msg or "Sign in" in msg:
+                raise RuntimeError(
+                    "DOWNLOAD GAGAL: auth YouTube gagal. "
+                    "Pastikan YT_UPLOAD_TOKEN (refresh token OAuth scope 'youtube') "
+                    "MASIH VALID — re-consent via get_auth_token.py kalau perlu. "
+                    "Cookies fallback juga bisa dipakai lewat YT_COOKIES_TXT."
+                ) from e
+            raise
         if not out.exists():
             raise RuntimeError("download gagal")
         log(f"download selesai: {out}")
