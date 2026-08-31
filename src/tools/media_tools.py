@@ -25,18 +25,33 @@ class DownloadRawTool(BaseTool):
     name: str = "download_raw_video"
     description: str = (
         "Download a YouTube video to a local .mp4 given a video_id. "
+        "YT_COOKIES_TXT is expected to be BASE64 of a Netscape cookies.txt "
+        "(decoded to a temp file, then passed to yt-dlp --cookies). "
         "Returns the absolute path to the downloaded file."
     )
 
     def _run(self, video_id: str) -> str:
         from ..config import YT_COOKIES_TXT
         out = WORKDIR / f"{video_id}.mp4"
-        cmd = ["yt-dlp", "-f", "best[ext=mp4]/best",
+        cmd = ["yt-dlp", "-f", "best[height<=1080]",
+               "--js-runtimes", os.environ.get("YTDLP_JS_RUNTIME", "node"),
+               "--remote-components", "ejs:github",
                "-o", str(out), "--no-playlist"]
         if YT_COOKIES_TXT:
-            cmd += ["--cookies", YT_COOKIES_TXT]
+            import base64
+            b64 = YT_COOKIES_TXT.strip()
+            try:
+                raw = base64.b64decode(b64).decode("utf-8")
+            except Exception:
+                raw = b64.replace("\r\n", "\n").replace("\r", "\n")
+            raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+            cookies = WORKDIR / "cookies.txt"
+            cookies.write_text(raw, newline="\n", encoding="utf-8")
+            cmd += ["--cookies", str(cookies)]
         cmd.append(f"https://www.youtube.com/watch?v={video_id}")
         run(cmd)
+        if not out.exists():
+            raise RuntimeError("download gagal")
         log(f"download selesai: {out}")
         return str(out)
 

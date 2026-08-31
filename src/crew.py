@@ -91,8 +91,60 @@ def build_clipping_crew() -> Crew:
         verbose=True,
     )
 
+    # ---- Tasks (hierarchical: director delegates, agents execute) ----
+    from crewai import Task
+
+    transcribe_task = Task(
+        description="Transkripsi video {raw_path} via Groq Whisper. Kembalikan dict "
+                    "berisi 'duration' dan 'words' (list {word,start,end}).",
+        expected_output="Dict {duration:float, words:[{word,start,end}]}",
+        agent=transcriber,
+    )
+
+    analyze_task = Task(
+        description="Dari transcript, pilih 3-8 segmen Shorts terbaik (30-60s) lengkap "
+                    "dengan start, end, score virality (1-10), reason, dan fillers. "
+                    "Urutkan by score menurun.",
+        expected_output="JSON list [{start,end,score,reason,fillers}] (3-8 item)",
+        agent=scout,
+        context=[transcribe_task],
+    )
+
+    cut_task = Task(
+        description="Untuk TIAP segmen terpilih, potong raw video (buang filler + silence) "
+                    "dan bakar caption Opus-style. Hasilkan list clip .mp4 + title + description.",
+        expected_output="List objek {clip_path, title, description, approved:true}",
+        agent=cutter,
+        context=[analyze_task],
+    )
+
+    caption_task = Task(
+        description="Review caption tiap clip: pastikan teks kontras, bottom-center, "
+                    "mudah dibaca (Opus-style). Laporkan jika ada yang perlu di-tweak.",
+        expected_output="QA notes per clip (atau 'OK')",
+        agent=captioner,
+        context=[cut_task],
+    )
+
+    review_task = Task(
+        description="Validasi tiap clip: durasi 30-60s, audio ada, caption kebakar, "
+                    "tidak melanggar policy. Set 'approved' tiap clip.",
+        expected_output="List {clip_path, approved:bool, reason}",
+        agent=qa,
+        context=[cut_task, caption_task],
+    )
+
+    upload_task = Task(
+        description="Upload semua clip ber-approved=true ke YouTube (public) via Upload API. "
+                    "Gunakan title/description dari cut_task. Kembalikan list URL.",
+        expected_output="List URL youtu.be/* yang berhasil diupload",
+        agent=uploader,
+        context=[review_task],
+    )
+
     return Crew(
         agents=[director, scout, transcriber, cutter, captioner, uploader, qa],
+        tasks=[transcribe_task, analyze_task, cut_task, caption_task, review_task, upload_task],
         process=Process.hierarchical,
         manager_agent=director,
         verbose=True,
