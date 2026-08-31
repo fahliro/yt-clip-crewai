@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from .settings import STATE_FILE, WORKDIR
+from .config import STATE_FILE, WORKDIR
 
 LOG_PATH = WORKDIR / "run.log"
 
