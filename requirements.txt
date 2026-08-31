@@ -4,4 +4,4 @@ litellm>=1.40
 python-dotenv>=1.0
 requests>=2.31
 yt-dlp>=2024.1
-camoufox>=1.0
+camoufox>=0.5
