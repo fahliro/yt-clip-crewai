@@ -43,6 +43,10 @@ def get_access_token() -> str | None:
     Returns the access token string, or None if credentials are missing / the
     refresh fails. Used as a STABLE alternative to fragile browser cookies for
     downloading the owner's own private videos and for uploading.
+
+    On success the token is also cached to WORKDIR/.yt_bearer so the download
+    step (a separate process from the preflight) can reuse it without another
+    refresh round-trip.
     """
     if not (YT_UPLOAD_CLIENT and YT_UPLOAD_SECRET and YT_UPLOAD_TOKEN):
         return None
@@ -62,7 +66,12 @@ def get_access_token() -> str | None:
         if "access_token" not in data:
             print(f"[auth] refresh balikin tanpa access_token: {str(data)[:400]}")
             return None
-        return data["access_token"]
+        tok = data["access_token"]
+        try:
+            (WORKDIR / ".yt_bearer").write_text(tok, encoding="utf-8")
+        except Exception:
+            pass
+        return tok
     except Exception as e:  # noqa: BLE001
         detail = ""
         if isinstance(e, requests.HTTPError) and e.response is not None:

@@ -40,8 +40,15 @@ class DownloadRawTool(BaseTool):
                "-o", str(out), "--no-playlist"]
         # Prefer STABLE OAuth Bearer token; fall back to (fragile) cookies.
         bearer = get_access_token()
+        if not bearer:
+            # reuse token cached by the preflight step (separate process)
+            try:
+                bearer = (WORKDIR / ".yt_bearer").read_text(encoding="utf-8").strip()
+            except Exception:
+                bearer = ""
+        log(f"[download] bearer status: {'OK' if bearer else 'NONE'}")
         if bearer:
-            cmd += ["--add-header", f"Authorization: Bearer {bearer}"]
+            cmd += ["--add-header", f"Authorization: Bearer ***"]
             log("[download] pakai OAuth Bearer (cookies dibuang)")
         elif YT_COOKIES_TXT:
             import base64
