@@ -38,6 +38,15 @@ jobs:
           ffmpeg -version | head -1
           node --version
           yt-dlp --version
+      - name: Restore Camoufox browser cache
+        id: cache-camoufox
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/camoufox
+          key: camoufox-${{ runner.os }}-0.5
+      - name: Fetch Camoufox binary (cache miss only)
+        if: steps.cache-camoufox.outputs.cache-hit != 'true'
+        run: python -m camoufox fetch
       - name: Refresh YouTube cookies (Camoufox)
         id: refresh_cookies
         env:
