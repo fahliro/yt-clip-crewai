@@ -58,7 +58,11 @@ def get_access_token() -> str | None:
             timeout=30,
         )
         r.raise_for_status()
-        return r.json().get("access_token")
+        data = r.json()
+        if "access_token" not in data:
+            print(f"[auth] refresh balikin tanpa access_token: {str(data)[:400]}")
+            return None
+        return data["access_token"]
     except Exception as e:  # noqa: BLE001
         detail = ""
         if isinstance(e, requests.HTTPError) and e.response is not None:
