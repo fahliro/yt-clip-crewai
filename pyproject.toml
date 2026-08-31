@@ -1,0 +1,22 @@
+[project]
+name = "yt-clip-crewai"
+version = "0.1.0"
+description = "YouTube Shorts clipping pipeline powered by a CrewAI multi-agent team."
+requires-python = ">=3.11"
+dependencies = [
+    "crewai>=0.95",
+    "crewai-tools>=0.32",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+    "yt-dlp>=2024.1",
+]
+
+[project.scripts]
+yt-clip-crew = "src.flow:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src", "src.tools", "src.config"]

@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+state.json
+workdir/
+*.mp4
+*.ass
+*.txt.b64
+cookies/
+.hermes-tmp.*/
+.DS_Store

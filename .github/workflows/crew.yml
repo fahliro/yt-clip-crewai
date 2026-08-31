@@ -1,0 +1,76 @@
+name: yt-clip-crew
+
+on:
+  repository_dispatch:
+    types: [video_published]
+  schedule:
+    - cron: "0 * * * *"          # fallback poll channel tiap 1 jam
+  workflow_dispatch:
+    inputs:
+      video_id:
+        description: "YouTube video ID (watch?v=XXXX) untuk test manual"
+        required: false
+
+permissions:
+  contents: write               # simpan state.json (anti double-clip)
+
+jobs:
+  clip:
+    environment: YT_CHANNEL_ID
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          node --version
+      - name: Setup ffmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify tools
+        run: |
+          ffmpeg -version | head -1
+          node --version
+          yt-dlp --version
+      - name: Preflight - cek credential
+        env:
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+          YT_COOKIES_TXT: ${{ secrets.YT_COOKIES_TXT }}
+          YT_UPLOAD_CLIENT: ${{ secrets.YT_UPLOAD_CLIENT }}
+          YT_UPLOAD_SECRET: ${{ secrets.YT_UPLOAD_SECRET }}
+          YT_UPLOAD_TOKEN: ${{ secrets.YT_UPLOAD_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+        run: python -c "from src.config import build_llm; build_llm(); print('LLM ok')"
+      - name: Run CrewAI pipeline
+        env:
+          VIDEO_ID: ${{ github.event.client_payload.video_id || github.event.inputs.video_id }}
+          YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
+          YT_COOKIES_TXT: ${{ secrets.YT_COOKIES_TXT }}
+          YTDLP_JS_RUNTIME: node
+          YT_UPLOAD_CLIENT: ${{ secrets.YT_UPLOAD_CLIENT }}
+          YT_UPLOAD_SECRET: ${{ secrets.YT_UPLOAD_SECRET }}
+          YT_UPLOAD_TOKEN: ${{ secrets.YT_UPLOAD_TOKEN }}
+          YT_READ_TOKEN: ${{ secrets.YT_READ_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          STATE_FILE: state.json
+        run: python -m src.flow
+      - name: Save state
+        if: always()
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "clip-bot"
+          git add state.json || true
+          git commit -m "update state" || true
+          git push || true
