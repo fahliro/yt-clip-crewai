@@ -163,7 +163,10 @@ def main():
         def _debug_state(stage):
             try:
                 log(f"[debug:{stage}] url={page.url} title={page.title()!r}")
-                # simpan screenshot kecil untuk diagnosa
+                # page source snippet (500 char pertama)
+                src = page.content()
+                log(f"[debug:{stage}] page_source_preview={src[:500]!r}")
+                # simpan screenshot ke artifact
                 page.screenshot(path=f"/tmp/yt_login_{stage}.png", full_page=True)
                 # semua input yang ada
                 inputs = page.eval_on_selector_all(
@@ -202,18 +205,22 @@ def main():
         pwd_selectors = [
             'input[type="password"]',
             'input[name="password"]',
-            'input[aria-label*="Password"]',
+            'input[aria-label*="assword"]',
+            'input[aria-label*="sandi"]',
+            'input[autocomplete="current-password"]',
+            'input#password',
+            'input.whsOnd.zHQkBf',
         ]
         pwd_filled = False
         for sel in pwd_selectors:
             try:
-                safe_fill(page, sel, password, timeout=15000, label="password")
+                safe_fill(page, sel, password, timeout=10000, label=f"password via {sel}")
                 pwd_filled = True
                 break
             except Exception:
                 continue
         if not pwd_filled:
-            log("Kolom password tidak ditemukan di semua selector kandidat.")
+            _debug_state("no_password_input")
             sys.exit(1)
 
         # Tombol submit password
