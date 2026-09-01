@@ -1,0 +1,55 @@
+name: Refresh YouTube Cookies (self-hosted)
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"   # setiap hari Minggu jam 00:00 UTC (~07:00 WIB)
+  workflow_dispatch:        # bisa di-trigger manual
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: self-hosted   # ⚠️ WAJIB pakai runner rumah
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Camoufox
+        run: |
+          python -m pip install -U pip
+          pip install camoufox>=0.5
+          python -m camoufox fetch
+      - name: Refresh cookies via Camoufox
+        id: refresh
+        env:
+          YT_USERNAME: ${{ secrets.YT_USERNAME }}
+          YT_APP_PASSWORD: ${{ secrets.YT_APP_PASSWORD }}
+        run: |
+          python .github/scripts/refresh_yt_cookies.py > /tmp/yt_cookies.b64
+          # simpan di artifact (bisa di-download manual jika perlu)
+          echo "Cookie base64 length: $(wc -c < /tmp/yt_cookies.b64)"
+      - name: Update secret YT_COOKIES_TXT
+        env:
+          GH_TOKEN: ${{ secrets.REPO_PAT }}   # PAT dengan scope: repo + write:packages
+          COOKIE_B64: ${{ steps.refresh.outputs.cookie_b64 }}
+        run: |
+          # decode base64 untuk dikirim ke API (GitHub secret API expects string)
+          cookie_txt=$(cat /tmp/yt_cookies.b64)
+          # GitHub CLI: gh secret set
+          echo "$cookie_txt" | gh secret set YT_COOKIES_TXT --env YT_CHANNEL_ID --repo "$GITHUB_REPOSITORY"
+          echo "✅ Secret YT_COOKIES_TXT diperbarui."
+      - name: Verifikasi cookies masih valid (test download)
+        run: |
+          python -c "import base64; d=open('/tmp/yt_cookies.b64').read().strip(); open('/tmp/yt_cookies.txt','wb').write(base64.b64decode(d))"
+          # probe dengan video publik yang ada
+          yt-dlp --cookies /tmp/yt_cookies.txt --no-playlist -F "https://www.youtube.com/watch?v=YVLYNuhKZpc" 2>&1 | tail -5 || true
+      - name: Upload cookie file (backup)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yt-cookies-${{ github.run_id }}
+          path: /tmp/yt_cookies.b64
+          if-no-files-found: ignore

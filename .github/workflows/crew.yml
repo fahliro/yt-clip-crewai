@@ -38,29 +38,19 @@ jobs:
           ffmpeg -version | head -1
           node --version
           yt-dlp --version
-      - name: Restore Camoufox browser cache
-        id: cache-camoufox
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/camoufox
-          key: camoufox-${{ runner.os }}-0.5
-      - name: Fetch Camoufox binary (cache miss only)
-        if: steps.cache-camoufox.outputs.cache-hit != 'true'
-        run: python -m camoufox fetch
-      - name: Refresh YouTube cookies (Camoufox)
-        id: refresh_cookies
-        env:
-          YT_USERNAME: ${{ secrets.YT_USERNAME }}
-          YT_APP_PASSWORD: ${{ secrets.YT_APP_PASSWORD }}
+      - name: Decode YouTube cookies
         run: |
-          echo "YT_COOKIES_TXT=$(python .github/scripts/refresh_yt_cookies.py)" >> $GITHUB_ENV
-      - name: Verify cookie length (debug)
-        run: |
-          echo "Cookie base64 length: ${#YT_COOKIES_TXT}"
+          if [ -z "$YT_COOKIES_TXT" ]; then
+            echo "::error::YT_COOKIES_TXT kosong. Jalankan workflow refresh-cookies atau set secret manual."
+            exit 1
+          fi
+          echo "$YT_COOKIES_TXT" | base64 -d > /tmp/yt_cookies.txt
+          echo "Cookie file: $(wc -l < /tmp/yt_cookies.txt) baris"
+          head -3 /tmp/yt_cookies.txt
       - name: Preflight - cek credential
         env:
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-          YT_COOKIES_TXT: ${{ env.YT_COOKIES_TXT }}
+          YT_COOKIES_TXT: ${{ secrets.YT_COOKIES_TXT }}
           YT_UPLOAD_CLIENT: ${{ secrets.YT_UPLOAD_CLIENT }}
           YT_UPLOAD_SECRET: ${{ secrets.YT_UPLOAD_SECRET }}
           YT_UPLOAD_TOKEN: ${{ secrets.YT_UPLOAD_TOKEN }}
@@ -74,14 +64,14 @@ jobs:
           YT_UPLOAD_CLIENT: ${{ secrets.YT_UPLOAD_CLIENT }}
           YT_UPLOAD_SECRET: ${{ secrets.YT_UPLOAD_SECRET }}
           YT_UPLOAD_TOKEN: ${{ secrets.YT_UPLOAD_TOKEN }}
-          YT_COOKIES_TXT: ${{ env.YT_COOKIES_TXT }}
+          YT_COOKIES_TXT: ${{ secrets.YT_COOKIES_TXT }}
           VIDEO_ID: ${{ github.event.client_payload.video_id || github.event.inputs.video_id }}
         run: python -m src.config.preflight
       - name: Run CrewAI pipeline
         env:
           VIDEO_ID: ${{ github.event.client_payload.video_id || github.event.inputs.video_id }}
           YT_CHANNEL_ID: ${{ secrets.YT_CHANNEL_ID }}
-          YT_COOKIES_TXT: ${{ env.YT_COOKIES_TXT }}
+          YT_COOKIES_TXT: ${{ secrets.YT_COOKIES_TXT }}
           YTDLP_JS_RUNTIME: node
           YT_UPLOAD_CLIENT: ${{ secrets.YT_UPLOAD_CLIENT }}
           YT_UPLOAD_SECRET: ${{ secrets.YT_UPLOAD_SECRET }}
