@@ -39,6 +39,8 @@ jobs:
           node --version
           yt-dlp --version
       - name: Decode YouTube cookies
+        env:
+          YT_COOKIES_TXT: ${{ secrets.YT_COOKIES_TXT }}
         run: |
           if [ -z "$YT_COOKIES_TXT" ]; then
             echo "::error::YT_COOKIES_TXT kosong. Jalankan workflow refresh-cookies atau set secret manual."
