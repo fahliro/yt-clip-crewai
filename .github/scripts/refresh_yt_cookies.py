@@ -148,17 +148,53 @@ def main():
         log(f"Membuka halaman login: {login_url}")
         page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
 
-        # Tangani interstitial consent "Before you continue to YouTube" jika muncul
-        try:
-            page.wait_for_selector("button:has-text('Continue')", timeout=5000)
-            log("Halaman consent muncul, klik Continue…")
-            page.click("button:has-text('Continue')")
-            page.wait_for_load_state("networkidle", timeout=30000)
-        except Exception:
-            pass  # Tidak ada interstitial, lanjut
+        # Tangani interstitial consent / cookie banner / region warning
+        for label in ("Continue", "Setuju", "Accept all", "I agree", "Izinkan"):
+            try:
+                page.wait_for_selector(f"button:has-text('{label}')", timeout=3000)
+                log(f"Interstitial '{label}' muncul, diklik.")
+                page.click(f"button:has-text('{label}')")
+                page.wait_for_load_state("networkidle", timeout=20000)
+                break
+            except Exception:
+                continue
 
-        # Step 1: email
-        safe_fill(page, 'input[type="email"]', username, label="email")
+        # --- DEBUG: catat state halaman kalau selector tidak ketemu ---
+        def _debug_state(stage):
+            try:
+                log(f"[debug:{stage}] url={page.url} title={page.title()!r}")
+                # simpan screenshot kecil untuk diagnosa
+                page.screenshot(path=f"/tmp/yt_login_{stage}.png", full_page=True)
+                # semua input yang ada
+                inputs = page.eval_on_selector_all(
+                    "input",
+                    "els => els.map(e => ({type:e.type,name:e.name,id:e.id,aria:e.getAttribute('aria-label'),visible:!!(e.offsetWidth||e.offsetHeight)}))",
+                )
+                log(f"[debug:{stage}] inputs={inputs}")
+                # ada iframe?
+                ifr = page.eval_on_selector_all("iframe", "els => els.map(e => e.src || e.id)")
+                log(f"[debug:{stage}] iframes={ifr}")
+            except Exception as e:
+                log(f"[debug:{stage}] error: {e}")
+
+        # Step 1: email — coba beberapa selector + tunggu salah satu muncul
+        email_selectors = [
+            'input[type="email"]',
+            'input[name="identifier"]',
+            'input#identifierId',
+            'input[autocomplete="username"]',
+        ]
+        email_filled = False
+        for sel in email_selectors:
+            try:
+                safe_fill(page, sel, username, timeout=8000, label=f"email via {sel}")
+                email_filled = True
+                break
+            except Exception:
+                continue
+        if not email_filled:
+            _debug_state("no_email_input")
+            sys.exit(1)
         safe_click(page, "#identifierNext", label="identifierNext")
         page.wait_for_load_state("networkidle", timeout=30000)
 

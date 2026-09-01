@@ -48,3 +48,10 @@ jobs:
           wc -l /tmp/yt_cookies.txt
           echo "--- yt-dlp probe ---"
           yt-dlp --cookies /tmp/yt_cookies.txt --no-playlist -F "https://www.youtube.com/watch?v=YVLYNuhKZpc" 2>&1 | tail -20 || true
+      - name: Upload debug screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yt-login-debug
+          path: /tmp/yt_login_*.png
+          if-no-files-found: ignore
