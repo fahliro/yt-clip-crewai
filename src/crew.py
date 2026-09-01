@@ -23,7 +23,8 @@ def build_clipping_crew() -> Crew:
             "spesialis, lalu menyetujui hasil akhir sebelum upload."
         ),
         llm=llm,
-        tools=[DownloadRawTool(), PollLatestTool()],
+        # NOTE: manager agent di hierarchical process TIDAK BOLEH punya tools.
+        # Tools dipindah ke worker (scout/uploader) di bawah.
         allow_delegation=True,
         verbose=True,
     )
@@ -36,7 +37,9 @@ def build_clipping_crew() -> Crew:
             "tinggi di YouTube Shorts. Kamu memberi skor dan alasan per momen."
         ),
         llm=llm,
-        tools=[PickSegmentsTool()],
+        # Scout sekarang juga handle polling channel & download video source
+        # (sebelumnya di director, tapi manager tidak boleh punya tools)
+        tools=[DownloadRawTool(), PollLatestTool(), PickSegmentsTool()],
         allow_delegation=False,
         verbose=True,
     )
